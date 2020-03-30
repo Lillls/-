@@ -21,6 +21,28 @@
 
    它用来描述一些可能还有用，但并非必须的对象。在系统内存不够用时，这类引用关联的对象将被垃圾收集器回收。JDK1.2之后提供了`SoftReference类来实现软引用。
 
+   举个例子：
+
+   图片加载框架中，通过软引用实现内存缓存。伪代码
+
+   ```java
+   //如果缓存过了
+   if(mImageCache.containsKey(imageUrl)){
+     SoftReference<Drawable> softReference = mImageCache.get(imageUrl);
+     if（softReference.get()!=null）{
+       return softReference.get(); 
+     }
+   }
+   //如果没有缓存过或者缓存被清理了
+   //下载图片资源
+   ImageRes res = download(imageUrl)
+   //将得到的图片存放到缓存中
+   mImageCache.put(imageUrl, new SoftReference<Drawable>(drawable));
+   return res;
+   ```
+
+   
+
 3. 弱引用（Weak Reference）
 
    ```java
@@ -28,7 +50,34 @@
    WeakReference<String> reference = new WeakReference<>(s);
    ```
 
-   它也是用来描述非须对象的，但它的强度比软引用更弱些，被弱引用关联的对象只能生存到下一次垃圾收集发生之前。当垃圾收集器工作时，无论当前内存是否足够，都会回收掉只被弱引用关联的对象。在JDK1.2之后，提供了`WeakReference类来实现弱引用。
+   它也是用来描述非须对象的，但它的强度比软引用更弱些，被弱引用关联的对象只能生存到下一次垃圾收集发生之前。当垃圾收集器工作时，无论当前内存是否足够，都会回收掉只被弱引用关联的对象。在JDK1.2之后，提供了`WeakReference`类来实现弱引用。
+
+   例子见`ThreadLocal,ThreadMap`
+
+   ThreadLocalMap类 该类时ThreadLocal的静态内部类，该Map使用开放地址法处理hash冲突的Map类，key为ThreadLocal对象，value为TheadLocal对象所对应的值value；
+
+   其中Entry对象当中的Key值对TheadLocal的引用就是WeakReference
+
+   ```java
+   static class Entry extends WeakReference<ThreadLocal>
+   {
+        /* The value assocaiated with this ThreadLocal.*/
+       Object value;
+       Entry(ThreadLocal k,Object v)
+       {
+           super(k);
+           value = v;
+       }
+   }
+   ```
+
+   这样当ThreadLocal对象除了Entry对象外没有其他引用的时候，在下一次垃圾回收发生时，该对象将被回收；
+
+   这也就导致在使用Entry对象获取key值得时候，需要判断是否为空，如果为空，则说明已经被回收了，此时将value值手动清除即可；
+
+   其实因为ThreadLocal牵涉到线程本地变量的操作，对于对象何时被清除，程序逻辑一般不太好实现，所以JDK设计者将其设置为了自动清除，
+
+   其实大部分TheadLocal对象我们都将其设置为private static 对象，一般不会被弱引用清除掉；
 
 4. 虚引用（Phantom Reference）
 
@@ -73,7 +122,7 @@
 
    4. 本地方法栈中（即一般说的Native方法）引用的变量
 
-      
+       
 
    通过一系列叫做“GC Root”的节点，从这些节点开始向下搜索，搜索到的路径叫做引用链，当一个对象到GC Root没有任何引用链相连时，表明该对象不可用。可以被回收
 
